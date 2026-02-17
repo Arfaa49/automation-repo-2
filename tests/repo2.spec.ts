@@ -16,6 +16,7 @@ test('testcases', async({page})=>{
 
 test('Api Testing', async({page})=>{
         
-    const api = new ApiPage(page);
-    await api.Testing();
-});
+    const apI = new ApiPage(page);
+    await apI.Testing();
+})
+;
