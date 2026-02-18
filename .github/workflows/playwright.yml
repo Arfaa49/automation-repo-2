@@ -5,42 +5,88 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+  schedule:
+    # 2 PM Pakistan = 09:00 UTC
+    - cron: "0 9 * * *"
+    # 4 PM Pakistan = 11:00 UTC
+    - cron: "0 11 * * *"
 
 jobs:
-  test:
-    timeout-minutes: 60
-    runs-on: ubuntu-latest
 
+  full:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
     steps:
-      # 1️⃣ Checkout Repo2 code
       - uses: actions/checkout@v4
 
-      # 2️⃣ Setup Node.js
       - uses: actions/setup-node@v4
         with:
           node-version: lts/*
 
-      # 3️⃣ Install dependencies
       - name: Install dependencies
         run: npm ci
 
-      # 4️⃣ Install Playwright browsers
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
-      # 5️⃣ Run Repo2 Playwright tests
-      - name: Run Playwright tests
+      - name: Run All Tests
         run: npx playwright test
 
-      # 6️⃣ Upload test report
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
-          name: playwright-report
+          name: playwright-report-full
           path: playwright-report/
           retention-days: 30
 
-      # 7️⃣ Trigger Repo1 workflow
+      - name: Trigger Repo1
+        run: |
+          curl -X POST \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer ${{ secrets.REPO1_TOKEN }}" \
+          https://api.github.com/repos/Arfaa49/automation-repo-1/actions/workflows/tests.yml/dispatches \
+          -d '{"ref":"main"}'
+
+  smoke:
+    if: github.event.schedule == '0 9 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - run: npm ci
+      - run: npx playwright install --with-deps
+
+      - name: Run Smoke Tests
+        run: npx playwright test --grep smoke
+
+      - name: Trigger Repo1
+        run: |
+          curl -X POST \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer ${{ secrets.REPO1_TOKEN }}" \
+          https://api.github.com/repos/Arfaa49/automation-repo-1/actions/workflows/tests.yml/dispatches \
+          -d '{"ref":"main"}'
+
+  regression:
+    if: github.event.schedule == '0 11 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - run: npm ci
+      - run: npx playwright install --with-deps
+
+      - name: Run Regression Tests
+        run: npx playwright test --grep regression
+
       - name: Trigger Repo1
         run: |
           curl -X POST \
